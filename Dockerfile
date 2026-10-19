@@ -13,7 +13,9 @@ WORKDIR /app
 COPY . /app
 
 # The [mcp] extra pulls mcp + starlette + uvicorn, which the HTTP transport needs.
-RUN pip install --no-cache-dir ".[mcp]"
+# Add more with --build-arg EXTRAS=mcp,ollama (compose.yaml does, for extraction).
+ARG EXTRAS=mcp
+RUN pip install --no-cache-dir ".[${EXTRAS}]"
 
 # Run as a non-root user — the server is network-exposed.
 RUN useradd --create-home --uid 10001 graphify

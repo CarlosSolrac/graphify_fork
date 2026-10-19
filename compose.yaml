@@ -1,0 +1,43 @@
+# graphify MCP server (starts with Docker Desktop) plus an on-demand extractor
+# that builds graphify-out/graph.json with the local Ollama model.
+#
+# Start the server:  docker compose up -d
+# Build the graph:   docker compose run --rm extract
+#
+# The server reloads graph.json when it changes, so no restart is needed after
+# an extract. Ollama runs from its own compose project (local-llm) and is
+# reached through the host's published port 11434.
+name: graphify
+
+x-image: &image
+  image: graphify:ollama
+  build:
+    context: .
+    args:
+      EXTRAS: mcp,ollama
+
+services:
+  mcp:
+    <<: *image
+    restart: unless-stopped
+    command: ["/data/graph.json", "--transport", "http", "--host", "0.0.0.0", "--port", "9669"]
+    ports:
+      # Loopback only: the server runs without an API key.
+      - "127.0.0.1:9669:9669"
+    volumes:
+      - ./graphify-out:/data
+
+  extract:
+    <<: *image
+    profiles: ["extract"]
+    entrypoint: ["graphify"]
+    command: ["extract", "/src", "--out", "/out"]
+    environment:
+      GRAPHIFY_BACKEND: ollama
+      OLLAMA_MODEL: qwen3.6-code
+      # Ollama ignores the key; any value silences graphify's missing-key warning.
+      OLLAMA_API_KEY: ollama
+      OLLAMA_BASE_URL: http://host.docker.internal:11434/v1
+    volumes:
+      - .:/src:ro
+      - ./graphify-out:/out/graphify-out
